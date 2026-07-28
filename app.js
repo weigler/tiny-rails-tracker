@@ -16,10 +16,10 @@ const LS_KEYS = {
 // Ordem oficial de progressão do jogo (Wiki: North America -> USA East, USA South,
 // USA Center, USA West, Canada West, Canada Center, Canada East -> depois Mexico/Latin America)
 const REGION_ORDER = [
-  'USA Leste', 'USA Sul', 'USA Centro', 'USA Oeste',
-  'Canada West', 'Canada Center', 'Canada East',
+  'EUA Leste', 'EUA Sul', 'EUA Centro', 'EUA Oeste',
+  'Canadá Oeste', 'Canadá Centro', 'Canadá Leste',
   'Alasca',
-  'Mexico',
+  'México',
   'América do Sul Norte', 'América do Sul Centro', 'América do Sul Austral',
   'Caribe', 'América Central',
   'Europa Oeste', 'Europa Sul', 'Europa Norte', 'Europa Leste',
@@ -29,6 +29,19 @@ const REGION_ORDER = [
   'Oriente Médio Superior', 'Oriente Médio Inferior',
   'Sudeste Asiático Oeste', 'Sudeste Asiático Leste',
 ];
+
+// Nomes de região que já existiram antes de ficarem consistentes em português —
+// preserva o progresso salvo de quem já tinha dados com o nome antigo.
+const REGION_RENAME_MIGRATION = {
+  'Canada West': 'Canadá Oeste',
+  'Canada Center': 'Canadá Centro',
+  'Canada East': 'Canadá Leste',
+  'Mexico': 'México',
+  'USA Leste': 'EUA Leste',
+  'USA Sul': 'EUA Sul',
+  'USA Centro': 'EUA Centro',
+  'USA Oeste': 'EUA Oeste',
+};
 
 let state = {
   cities: [],
@@ -54,9 +67,21 @@ function loadRegionUnlocks() {
   }
   state.regionUnlocks = JSON.parse(saved);
 
+  // Migra chaves de região salvas com o nome antigo (inglês/misto) pro nome novo,
+  // preservando se a região já estava desbloqueada ou não.
+  let changed = false;
+  Object.entries(REGION_RENAME_MIGRATION).forEach(([oldName, newName]) => {
+    if (oldName in state.regionUnlocks) {
+      if (!(newName in state.regionUnlocks)) {
+        state.regionUnlocks[newName] = state.regionUnlocks[oldName];
+      }
+      delete state.regionUnlocks[oldName];
+      changed = true;
+    }
+  });
+
   // Qualquer região nova adicionada depois que o usuário já tinha esse estado salvo
   // entra travada por padrão — antes ficava "sem registro" e vazava como sempre visível.
-  let changed = false;
   REGION_ORDER.forEach(r => {
     if (!(r in state.regionUnlocks)) {
       state.regionUnlocks[r] = false;
@@ -104,6 +129,17 @@ function loadState() {
   state.cities = JSON.parse(localStorage.getItem(LS_KEYS.cities) || '[]').map(c => ({ stationLevel: 1, ...c }));
   state.inventory = JSON.parse(localStorage.getItem(LS_KEYS.inventory) || '{}');
   state.trains = JSON.parse(localStorage.getItem(LS_KEYS.trains) || '[]');
+
+  // Corrige nomes de região salvos com o padrão antigo (inglês/misto), sem mexer em mais nada da cidade
+  let migratedCities = false;
+  state.cities.forEach(c => {
+    if (c.region in REGION_RENAME_MIGRATION) {
+      c.region = REGION_RENAME_MIGRATION[c.region];
+      migratedCities = true;
+    }
+  });
+  if (migratedCities) persistAll();
+
   loadRegionUnlocks();
 }
 
