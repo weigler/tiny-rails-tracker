@@ -105,10 +105,12 @@
   <section class="panel hidden" id="panel-trens">
     <div class="combo-card">
       <h2>Calcular pontuação de todos os vagões</h2>
-      <p>Soma carga e passageiros com um peso maior, e comida/conforto/diversão/instalações com peso menor, pra cada nível de cada vagão. Substitui qualquer pontuação já preenchida.</p>
+      <p>Carga e passageiros começam com peso 2 cada (podem ser ajustados separadamente), e comida/conforto/diversão/instalações com peso menor, pra cada nível de cada vagão. Substitui qualquer pontuação já preenchida.</p>
       <div class="combo-controls">
-        <label for="pesoCargaPass">Peso carga/passageiros</label>
-        <input type="number" id="pesoCargaPass" min="0" step="0.5" value="2">
+        <label for="pesoCarga">Peso carga</label>
+        <input type="number" id="pesoCarga" min="0" step="0.5" value="2">
+        <label for="pesoPassageiros">Peso passageiros</label>
+        <input type="number" id="pesoPassageiros" min="0" step="0.5" value="2">
         <label for="pesoOutros">Peso demais atributos</label>
         <input type="number" id="pesoOutros" min="0" step="0.5" value="1">
         <button id="btnRecalcularPontos" class="btn btn-primary">Calcular pontuação de todos</button>
@@ -196,24 +198,6 @@
           <option value="pt">Português</option>
           <option value="en">Inglês</option>
         </select>
-      </div>
-
-      <div class="config-card">
-        <h2>Nomes em português e inglês, de acordo com a Wiki</h2>
-        <p>Todo item do jogo tem nome em português e em inglês, ambos baseados na <a href="https://tinyrails.fandom.com/wiki/Resources" target="_blank" rel="noopener">página de recursos da Tiny Rails Wiki</a> — não usamos mais os nomes como estavam na planilha antiga, que misturava os dois idiomas pro mesmo item (ex: "Aço" e "Steel" eram tratados como coisas diferentes). Nomes que mudaram desde a planilha original:</p>
-        <div id="listaAliases" class="alias-list"></div>
-      </div>
-
-      <div class="config-card">
-        <h2>Itens resolvidos pela Wiki</h2>
-        <p>Estes nomes vieram incompletos na planilha original (ex: "??", "Ball?"). Achei o nome certo cruzando a cidade e a quantidade exata com uma lista de demandas de carga do Tiny Rails, e já corrigi:</p>
-        <div id="listaRevisao" class="alias-list"></div>
-      </div>
-
-      <div class="config-card">
-        <h2>343 vagões, direto da Wiki oficial</h2>
-        <p>Toda a lista de vagões foi reconstruída a partir da tabela oficial "Cars" da Tiny Rails Wiki (você mandou o PDF) — Nível 1, Nível 2 e Max de cada um, sem estimativa. Nenhum vagão vem marcado como "Tenho": marque na aba Trens conforme for ganhando ou comprando no jogo. Peso e a explicação do bônus (perk) também vieram da mesma fonte.</p>
-        <p>7 números da lista da Wiki não existem (146, 147, 163, 327, 336, 345 — provavelmente vagões removidos do jogo em algum momento), então a lista final tem 343 vagões, não 350.</p>
       </div>
     </div>
   </section>

@@ -653,15 +653,6 @@ document.getElementById('btnRecalcularPontos').addEventListener('click', () => {
 /* ================= AJUSTES ================= */
 
 function renderConfig() {
-  const aliasBox = document.getElementById('listaAliases');
-  aliasBox.innerHTML = Object.entries(SEED_DATA.aliasesApplied)
-    .map(([oldName, newName]) => `<span class="alias-pill">${oldName} → ${newName}</span>`).join('');
-
-  const reviewBox = document.getElementById('listaRevisao');
-  const resolved = SEED_DATA.resolvedViaWiki || [];
-  reviewBox.innerHTML = resolved
-    .map(entry => `<span class="alias-pill">${entry}</span>`).join('') || '<span class="alias-pill">Nenhum</span>';
-
   document.getElementById('idiomaItens').value = state.lang;
 }
 
