@@ -8,17 +8,56 @@ const LS_KEYS = {
   cities: 'tr_cities',
   inventory: 'tr_inventory',
   trains: 'tr_trains',
-  seeded: 'tr_seeded_v5',
+  seeded: 'tr_seeded_v6',
   lang: 'tr_item_lang',
+  regions: 'tr_region_unlocks',
 };
+
+// Ordem oficial de progressão do jogo (Wiki: North America -> USA East, USA South,
+// USA Center, USA West, Canada West, Canada Center, Canada East -> depois Mexico/Latin America)
+const REGION_ORDER = [
+  'USA Leste', 'USA Sul', 'USA Centro', 'USA Oeste',
+  'Canada West', 'Canada Center', 'Canada East', 'Mexico',
+];
 
 let state = {
   cities: [],
   inventory: {},   // { itemName: { depot, cargo } }
   trains: [],
   lang: localStorage.getItem(LS_KEYS.lang) || 'pt',
+  regionUnlocks: {}, // { regionName: true/false }
   sort: { cidades: { key: 'city', dir: 1 }, estoque: { key: 'remaining', dir: -1 }, trens: { key: 'points', dir: -1 } },
 };
+
+function defaultRegionUnlocks() {
+  const unlocks = {};
+  REGION_ORDER.forEach((r, i) => { unlocks[r] = i === 0; }); // só a primeira região começa desbloqueada
+  return unlocks;
+}
+
+function loadRegionUnlocks() {
+  const saved = localStorage.getItem(LS_KEYS.regions);
+  if (saved) {
+    state.regionUnlocks = JSON.parse(saved);
+  } else {
+    state.regionUnlocks = defaultRegionUnlocks();
+    localStorage.setItem(LS_KEYS.regions, JSON.stringify(state.regionUnlocks));
+  }
+}
+
+function persistRegionUnlocks() {
+  localStorage.setItem(LS_KEYS.regions, JSON.stringify(state.regionUnlocks));
+}
+
+function isRegionUnlocked(region) {
+  // regiões que não fazem parte do esquema conhecido ficam sempre visíveis
+  if (!(region in state.regionUnlocks)) return true;
+  return !!state.regionUnlocks[region];
+}
+
+function nextLockedRegion() {
+  return REGION_ORDER.find(r => !state.regionUnlocks[r]);
+}
 
 function displayItem(englishName) {
   if (state.lang === 'pt') {
@@ -38,19 +77,23 @@ function loadState() {
   const seeded = localStorage.getItem(LS_KEYS.seeded);
   if (!seeded) {
     seedFromWorkbookData();
+    loadRegionUnlocks();
     return;
   }
   state.cities = JSON.parse(localStorage.getItem(LS_KEYS.cities) || '[]');
   state.inventory = JSON.parse(localStorage.getItem(LS_KEYS.inventory) || '{}');
   state.trains = JSON.parse(localStorage.getItem(LS_KEYS.trains) || '[]');
+  loadRegionUnlocks();
 }
 
 function seedFromWorkbookData() {
-  state.cities = SEED_DATA.cities.map((c, i) => ({ id: 'c' + i, ...c }));
+  // Sempre começa zerado — a estrutura (cidades, itens, vagões) vem do jogo,
+  // mas entregue/depósito/vagão/"tenho" nunca são herdados de nenhuma fonte antiga.
+  state.cities = SEED_DATA.cities.map((c, i) => ({ ...c, id: 'c' + i, delivered: 0 }));
 
   const inv = {};
   SEED_DATA.inventory.forEach(row => {
-    inv[row.item] = { depot: row.depot || 0, cargo: row.cargo || 0 };
+    inv[row.item] = { depot: 0, cargo: 0 };
   });
   state.inventory = inv;
 
@@ -61,8 +104,8 @@ function seedFromWorkbookData() {
     type: t.type,
     levels: JSON.parse(JSON.stringify(t.levels)),
     levelOrder: [...t.levelOrder],
-    currentLevel: t.currentLevel,
-    owned: t.owned,
+    currentLevel: t.levelOrder[0],
+    owned: false,
   }));
 
   persistAll();
@@ -130,11 +173,52 @@ function cityProgress(c) {
   return Math.min(1, (c.delivered || 0) / c.total);
 }
 
+function renderRegioes() {
+  const box = document.getElementById('listaRegioes');
+  const next = nextLockedRegion();
+  box.innerHTML = REGION_ORDER.map((r, i) => {
+    const unlocked = !!state.regionUnlocks[r];
+    const isNext = r === next;
+    const cityCount = state.cities.filter(c => c.region === r).length;
+    let cls = unlocked ? 'unlocked' : (isNext ? 'next' : 'locked');
+    let action = '';
+    if (unlocked) {
+      action = `<span class="region-status">✓ Desbloqueada</span>`;
+    } else if (isNext) {
+      action = `<button class="btn btn-primary btn-mini" data-region="${r}">Desbloquear</button>`;
+    } else {
+      action = `<span class="region-status">🔒 Bloqueada</span>`;
+    }
+    return `
+      <div class="region-row ${cls}">
+        <span class="region-name">${i + 1}. ${r} <span class="region-status">(${cityCount} cidades)</span></span>
+        ${action}
+      </div>`;
+  }).join('');
+
+  box.querySelectorAll('button[data-region]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const region = btn.dataset.region;
+      state.regionUnlocks[region] = true;
+      persistRegionUnlocks();
+      renderRegioes();
+      populateRegionFilter();
+      renderCidades();
+      renderEstoque();
+      showToast(`${region} desbloqueada!`);
+    });
+  });
+}
+
 function populateRegionFilter() {
   const sel = document.getElementById('cidadeRegiaoFiltro');
-  const regions = [...new Set(state.cities.map(c => c.region).filter(Boolean))].sort();
+  const currentValue = sel.value;
+  const regions = [...new Set(state.cities.map(c => c.region).filter(Boolean))]
+    .filter(isRegionUnlocked)
+    .sort();
   sel.innerHTML = '<option value="">Todas as regiões</option>' +
     regions.map(r => `<option value="${r}">${r}</option>`).join('');
+  if (regions.includes(currentValue)) sel.value = currentValue;
 }
 
 function renderCidades() {
@@ -143,6 +227,7 @@ function renderCidades() {
   const status = document.getElementById('cidadeStatusFiltro').value;
 
   let rows = state.cities.filter(c => {
+    if (!isRegionUnlocked(c.region)) return false;
     if (regiao && c.region !== regiao) return false;
     const done = cityRemaining(c) === 0;
     if (status === 'pendente' && done) return false;
@@ -204,6 +289,7 @@ function computeItemNeeds() {
   const needMap = {};
   state.cities.forEach(c => {
     if (!c.item) return;
+    if (!isRegionUnlocked(c.region)) return;
     needMap[c.item] = (needMap[c.item] || 0) + cityRemaining(c);
   });
   const allItems = new Set([...Object.keys(needMap), ...Object.keys(state.inventory)]);
@@ -506,7 +592,7 @@ document.getElementById('idiomaItens').addEventListener('change', e => {
 });
 
 document.getElementById('btnExportar').addEventListener('click', () => {
-  const backup = { cities: state.cities, inventory: state.inventory, trains: state.trains, exportedAt: new Date().toISOString() };
+  const backup = { cities: state.cities, inventory: state.inventory, trains: state.trains, regionUnlocks: state.regionUnlocks, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -526,6 +612,8 @@ document.getElementById('inputImportar').addEventListener('change', e => {
       state.cities = data.cities;
       state.inventory = data.inventory;
       state.trains = data.trains;
+      state.regionUnlocks = data.regionUnlocks || defaultRegionUnlocks();
+      persistRegionUnlocks();
       persistAll();
       renderAll();
       showToast('Backup importado com sucesso.');
@@ -538,21 +626,24 @@ document.getElementById('inputImportar').addEventListener('change', e => {
 });
 
 document.getElementById('btnZerarProgresso').addEventListener('click', () => {
-  if (!confirm('Isso zera o quanto você já entregou em cada cidade, o depósito e o vagão de todo item, e desmarca todos os vagões como "Tenho". As listas de cidades, itens e vagões continuam do jeito que estão. Continuar?')) return;
+  if (!confirm('Isso zera o quanto você já entregou em cada cidade, o depósito e o vagão de todo item, desmarca todos os vagões como "Tenho", e trava todas as regiões de novo (só a primeira fica desbloqueada). As listas de cidades, itens e vagões continuam do jeito que estão. Continuar?')) return;
   state.cities.forEach(c => { c.delivered = 0; });
   Object.keys(state.inventory).forEach(item => {
     state.inventory[item].depot = 0;
     state.inventory[item].cargo = 0;
   });
   state.trains.forEach(t => { t.owned = false; t.currentLevel = t.levelOrder[0]; });
+  state.regionUnlocks = defaultRegionUnlocks();
+  persistRegionUnlocks();
   persistAll();
   renderAll();
-  showToast('Progresso zerado — jogo novo, listas mantidas.');
+  showToast('Progresso zerado — jogo novo, listas mantidas, regiões travadas de novo.');
 });
 
 /* ================= Tabs / init ================= */
 
 function renderAll() {
+  renderRegioes();
   populateRegionFilter();
   renderCidades();
   renderEstoque();

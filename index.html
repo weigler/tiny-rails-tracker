@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tiny Rails — Manifesto de Carga</title>
+<meta name="description" content="Controle de cidades, estoque e vagões do Tiny Rails">
+<meta name="theme-color" content="#16211c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tiny Rails">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -29,6 +37,12 @@
 
   <!-- CIDADES -->
   <section class="panel" id="panel-cidades">
+    <div class="combo-card">
+      <h2>Progresso de regiões</h2>
+      <p>As cidades só aparecem na lista depois que a região delas é desbloqueada — na ordem em que o jogo libera de verdade (América do Norte primeiro, depois México). Desbloqueie a próxima quando avançar no jogo.</p>
+      <div id="listaRegioes" class="region-list"></div>
+    </div>
+
     <div class="toolbar">
       <input type="search" id="cidadeBusca" placeholder="Buscar cidade, item ou região…" autocomplete="off">
       <select id="cidadeRegiaoFiltro"><option value="">Todas as regiões</option></select>
@@ -209,5 +223,12 @@
 
 <script src="data.js"></script>
 <script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>
