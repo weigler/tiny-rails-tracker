@@ -89,11 +89,25 @@
   <!-- TRENS -->
   <section class="panel hidden" id="panel-trens">
     <div class="combo-card">
+      <h2>Calcular pontuação de todos os vagões</h2>
+      <p>Soma carga e passageiros com um peso maior, e comida/conforto/diversão/instalações com peso menor, pra cada nível de cada vagão. Substitui qualquer pontuação já preenchida.</p>
+      <div class="combo-controls">
+        <label for="pesoCargaPass">Peso carga/passageiros</label>
+        <input type="number" id="pesoCargaPass" min="0" step="0.5" value="2">
+        <label for="pesoOutros">Peso demais atributos</label>
+        <input type="number" id="pesoOutros" min="0" step="0.5" value="1">
+        <button id="btnRecalcularPontos" class="btn btn-primary">Calcular pontuação de todos</button>
+      </div>
+    </div>
+
+    <div class="combo-card">
       <h2>Melhor combinação</h2>
-      <p>Pega, entre os vagões marcados como "Tenho", os de maior pontuação até preencher o número de vagas do seu trem.</p>
+      <p>Pega, entre os vagões marcados como "Tenho", a combinação de maior pontuação total que caiba no número de vagas e no peso máximo do seu trem.</p>
       <div class="combo-controls">
         <label for="comboVagas">Vagas disponíveis</label>
         <input type="number" id="comboVagas" min="1" value="6">
+        <label for="comboPesoMax">Peso máximo do trem</label>
+        <input type="number" id="comboPesoMax" min="0" step="0.1" value="100">
         <button id="btnCalcularCombo" class="btn btn-primary">Calcular melhor combinação</button>
       </div>
       <div id="comboResultado"></div>
@@ -115,7 +129,6 @@
         <option value="nao">Ainda não tenho</option>
       </select>
       <span class="toolbar-count" id="trenCount"></span>
-      <button id="btnAddTrem" class="btn btn-secondary btn-mini">+ Adicionar vagão</button>
     </div>
     <div class="table-wrap">
       <table id="tabelaTrens">
@@ -133,8 +146,6 @@
             <th data-sort="facilities">Instal.</th>
             <th data-sort="points">Pontos</th>
             <th>Tenho</th>
-            <th></th>
-            <th></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -164,8 +175,8 @@
       </div>
 
       <div class="config-card">
-        <h2>Idioma dos itens</h2>
-        <p>Escolha se os nomes de item aparecem em português ou inglês nas abas Cidades e Estoque. A busca funciona nos dois idiomas, independente da opção escolhida.</p>
+        <h2>Idioma dos itens e vagões</h2>
+        <p>Escolha se os nomes aparecem em português ou inglês — vale pras abas Cidades, Estoque e Trens. A ordenação alfabética (clicando no cabeçalho "Item" ou "Nome") também segue o idioma escolhido. A busca funciona nos dois idiomas ao mesmo tempo, independente da opção aqui.</p>
         <select id="idiomaItens">
           <option value="pt">Português</option>
           <option value="en">Inglês</option>
