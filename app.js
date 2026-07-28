@@ -8,15 +8,29 @@ const LS_KEYS = {
   cities: 'tr_cities',
   inventory: 'tr_inventory',
   trains: 'tr_trains',
-  seeded: 'tr_seeded_v1',
+  seeded: 'tr_seeded_v2',
+  lang: 'tr_item_lang',
 };
 
 let state = {
   cities: [],
   inventory: {},   // { itemName: { depot, cargo } }
   trains: [],
+  lang: localStorage.getItem(LS_KEYS.lang) || 'pt',
   sort: { cidades: { key: 'city', dir: 1 }, estoque: { key: 'remaining', dir: -1 }, trens: { key: 'points', dir: -1 } },
 };
+
+function displayItem(englishName) {
+  if (state.lang === 'pt') {
+    return SEED_DATA.itemNamesPT[englishName] || englishName;
+  }
+  return englishName;
+}
+
+function itemSearchHaystack(englishName) {
+  const pt = SEED_DATA.itemNamesPT[englishName] || '';
+  return `${englishName} ${pt}`.toLowerCase();
+}
 
 /* ---------------- Bootstrapping / persistence ---------------- */
 
@@ -127,7 +141,7 @@ function renderCidades() {
     if (status === 'pendente' && done) return false;
     if (status === 'completo' && !done) return false;
     if (q) {
-      const hay = `${c.city} ${c.state} ${c.item} ${c.region}`.toLowerCase();
+      const hay = `${c.city} ${c.state} ${c.region} ${itemSearchHaystack(c.item)}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -148,7 +162,7 @@ function renderCidades() {
         <td>${c.region || ''}</td>
         <td>${c.city === 'Factory' ? 'Fábrica' : c.city}</td>
         <td>${c.state || ''}</td>
-        <td class="item-name">${c.item}</td>
+        <td class="item-name">${displayItem(c.item)}</td>
         <td>${c.total || 0}</td>
         <td><input class="qty-input" type="number" min="0" data-field="delivered" value="${c.delivered || 0}"></td>
         <td>${cityRemaining(c)}</td>
@@ -172,7 +186,7 @@ function renderCidades() {
       persistAll();
       renderCidades();
       renderEstoque();
-      showToast(`${city.item} em ${city.city}: entregue atualizado.`);
+      showToast(`${displayItem(city.item)} em ${city.city}: entregue atualizado.`);
     });
   });
 }
@@ -199,7 +213,7 @@ function renderEstoque() {
   const status = document.getElementById('itemStatusFiltro').value;
 
   let rows = computeItemNeeds().filter(r => {
-    if (q && !r.item.toLowerCase().includes(q)) return false;
+    if (q && !itemSearchHaystack(r.item).includes(q)) return false;
     if (status === 'falta' && r.remaining <= 0) return false;
     if (status === 'completo' && r.remaining > 0) return false;
     return true;
@@ -213,7 +227,7 @@ function renderEstoque() {
   const tbody = document.querySelector('#tabelaItens tbody');
   tbody.innerHTML = rows.map(r => `
     <tr class="${r.remaining <= 0 ? 'completo' : ''}" data-item="${encodeURIComponent(r.item)}">
-      <td class="item-name">${r.item}</td>
+      <td class="item-name">${displayItem(r.item)}</td>
       <td>${r.needed}</td>
       <td><input class="qty-input" type="number" min="0" data-field="depot" value="${r.depot}"></td>
       <td><input class="qty-input" type="number" min="0" data-field="cargo" value="${r.cargo}"></td>
@@ -233,12 +247,12 @@ function renderEstoque() {
     tr.querySelector('input[data-field="depot"]').addEventListener('change', e => {
       let v = parseInt(e.target.value, 10); if (isNaN(v) || v < 0) v = 0;
       getInv(item).depot = v; persistAll(); renderEstoque();
-      showToast(`${item}: depósito atualizado.`);
+      showToast(`${displayItem(item)}: depósito atualizado.`);
     });
     tr.querySelector('input[data-field="cargo"]').addEventListener('change', e => {
       let v = parseInt(e.target.value, 10); if (isNaN(v) || v < 0) v = 0;
       getInv(item).cargo = v; persistAll(); renderEstoque();
-      showToast(`${item}: vagão atualizado.`);
+      showToast(`${displayItem(item)}: vagão atualizado.`);
     });
 
     tr.querySelectorAll('.transfer-cell button').forEach(btn => {
@@ -248,21 +262,23 @@ function renderEstoque() {
         const inv = getInv(item);
         if (isNaN(qty) || qty <= 0) { showToast('Digite uma quantidade válida.'); return; }
         if (btn.dataset.dir === 'toDepot') {
-          if (qty > inv.cargo) { showToast(`O vagão só tem ${inv.cargo} de ${item}.`); return; }
+          if (qty > inv.cargo) { showToast(`O vagão só tem ${inv.cargo} de ${displayItem(item)}.`); return; }
           inv.cargo -= qty; inv.depot += qty;
         } else {
-          if (qty > inv.depot) { showToast(`O depósito só tem ${inv.depot} de ${item}.`); return; }
+          if (qty > inv.depot) { showToast(`O depósito só tem ${inv.depot} de ${displayItem(item)}.`); return; }
           inv.depot -= qty; inv.cargo += qty;
         }
         persistAll();
         renderEstoque();
-        showToast(`Transferido ${qty}× ${item}.`);
+        showToast(`Transferido ${qty}× ${displayItem(item)}.`);
       });
     });
   });
 }
 
 /* ================= TRENS ================= */
+
+const TREN_NUM_FIELDS = ['level', 'weight', 'passengers', 'cargo', 'food', 'comfort', 'entertainment', 'facilities', 'points'];
 
 function renderTrens() {
   const q = document.getElementById('trenBusca').value.trim().toLowerCase();
@@ -284,46 +300,136 @@ function renderTrens() {
   document.getElementById('trenCount').textContent = `${rows.length} vagão/vagões`;
 
   const tbody = document.querySelector('#tabelaTrens tbody');
-  const fmt = v => v === null || v === undefined ? '—' : v;
+  const numInput = (t, field) => `<input class="tbl-input qty-input" type="number" step="any" data-field="${field}" value="${t[field] ?? ''}">`;
   tbody.innerHTML = rows.map(t => `
     <tr data-id="${t.id}">
-      <td>${t.name}</td>
-      <td>${t.type}</td>
-      <td>${fmt(t.level)}</td>
-      <td>${fmt(t.weight)}</td>
-      <td>${fmt(t.passengers)}</td>
-      <td>${fmt(t.cargo)}</td>
-      <td>${fmt(t.food)}</td>
-      <td>${fmt(t.comfort)}</td>
-      <td>${fmt(t.entertainment)}</td>
-      <td>${fmt(t.facilities)}</td>
-      <td>${fmt(t.points)}</td>
+      <td><input class="tbl-input name-input" type="text" data-field="name" value="${t.name}"></td>
+      <td>
+        <select class="tbl-select" data-field="type">
+          ${['E', 'F', 'C', 'P', 'M'].map(v => `<option value="${v}" ${t.type === v ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+      </td>
+      ${TREN_NUM_FIELDS.map(f => `<td>${numInput(t, f)}</td>`).join('')}
       <td><input type="checkbox" class="own-check" ${(t.ownedCT || t.ownedPT) ? 'checked' : ''}></td>
-    </tr>`).join('') || `<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--ink-soft)">Nenhum vagão bate com esse filtro.</td></tr>`;
+      <td><button class="btn-remove" title="Remover vagão">✕</button></td>
+    </tr>`).join('') || `<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--ink-soft)">Nenhum vagão bate com esse filtro.</td></tr>`;
 
-  tbody.querySelectorAll('.own-check').forEach(cb => {
-    cb.addEventListener('change', e => {
-      const id = e.target.closest('tr').dataset.id;
-      const train = state.trains.find(t => t.id === id);
+  tbody.querySelectorAll('tr[data-id]').forEach(tr => {
+    const id = tr.dataset.id;
+    const train = state.trains.find(t => t.id === id);
+    if (!train) return;
+
+    tr.querySelector('input[data-field="name"]').addEventListener('change', e => {
+      train.name = e.target.value.trim() || 'Sem nome';
+      persistAll(); renderTrens();
+    });
+    tr.querySelector('select[data-field="type"]').addEventListener('change', e => {
+      train.type = e.target.value;
+      persistAll(); renderTrens();
+    });
+    TREN_NUM_FIELDS.forEach(f => {
+      tr.querySelector(`input[data-field="${f}"]`).addEventListener('change', e => {
+        const v = e.target.value === '' ? null : parseFloat(e.target.value);
+        train[f] = (v === null || isNaN(v)) ? null : v;
+        persistAll();
+      });
+    });
+    tr.querySelector('.own-check').addEventListener('change', e => {
       train.ownedCT = e.target.checked;
       train.ownedPT = false;
       persistAll();
       showToast(`${train.name}: ${e.target.checked ? 'marcado como possuído' : 'desmarcado'}.`);
     });
+    tr.querySelector('.btn-remove').addEventListener('click', () => {
+      if (!confirm(`Remover "${train.name}" da lista?`)) return;
+      state.trains = state.trains.filter(t => t.id !== id);
+      persistAll();
+      renderTrens();
+      showToast(`${train.name} removido.`);
+    });
   });
 }
+
+document.getElementById('btnAddTrem').addEventListener('click', () => {
+  const id = 't_' + Date.now();
+  state.trains.push({
+    id, name: 'Novo vagão', type: 'E', level: 1,
+    weight: null, passengers: null, cargo: null, food: null,
+    comfort: null, entertainment: null, facilities: null, points: null,
+    ownedCT: true, ownedPT: false,
+  });
+  persistAll();
+  renderTrens();
+  showToast('Vagão adicionado — edite os campos na tabela.');
+});
+
+function renderComboResultado(slots) {
+  const box = document.getElementById('comboResultado');
+  const owned = state.trains.filter(t => t.ownedCT || t.ownedPT);
+
+  if (owned.length === 0) {
+    box.innerHTML = `<p class="combo-empty">Nenhum vagão está marcado como "Tenho" ainda. Marque na tabela abaixo pra calcular.</p>`;
+    return;
+  }
+
+  const sorted = sortRows(owned, 'points', -1);
+  const chosen = sorted.slice(0, slots);
+  const sum = (field) => chosen.reduce((acc, t) => acc + (t[field] || 0), 0);
+
+  const summaryHtml = `
+    <div class="combo-summary">
+      <span><b>${chosen.length}</b> de ${slots} vaga(s) preenchida(s)</span>
+      <span><b>${sum('points').toFixed(1)}</b> pontos</span>
+      <span><b>${sum('weight').toFixed(1)}</b> peso</span>
+      <span><b>${sum('passengers')}</b> passageiros</span>
+      <span><b>${sum('cargo')}</b> carga</span>
+      <span><b>${sum('food')}</b> comida</span>
+      <span><b>${sum('comfort')}</b> conforto</span>
+      <span><b>${sum('entertainment')}</b> diversão</span>
+      <span><b>${sum('facilities')}</b> instalações</span>
+    </div>`;
+
+  const listHtml = chosen.length
+    ? `<div class="combo-list">${chosen.map(t => `
+        <div class="combo-list-item"><span>${t.name} <span style="color:var(--ink-soft)">(${t.type})</span></span><span>${t.points ?? '—'} pts</span></div>
+      `).join('')}</div>`
+    : `<p class="combo-empty">Nenhum vagão possuído tem pontuação registrada.</p>`;
+
+  box.innerHTML = summaryHtml + listHtml;
+
+  if (owned.length < slots) {
+    box.innerHTML += `<p class="combo-empty" style="margin-top:8px">Você só tem ${owned.length} vagão/vagões marcados como "Tenho" — menos que as ${slots} vagas pedidas.</p>`;
+  }
+}
+
+document.getElementById('btnCalcularCombo').addEventListener('click', () => {
+  let slots = parseInt(document.getElementById('comboVagas').value, 10);
+  if (isNaN(slots) || slots < 1) slots = 1;
+  renderComboResultado(slots);
+});
 
 /* ================= AJUSTES ================= */
 
 function renderConfig() {
   const aliasBox = document.getElementById('listaAliases');
-  aliasBox.innerHTML = Object.entries(SEED_DATA.aliases)
-    .map(([en, pt]) => `<span class="alias-pill">${en} → ${pt}</span>`).join('');
+  aliasBox.innerHTML = Object.entries(SEED_DATA.aliasesApplied)
+    .map(([oldName, newName]) => `<span class="alias-pill">${oldName} → ${newName}</span>`).join('');
 
   const reviewBox = document.getElementById('listaRevisao');
-  reviewBox.innerHTML = SEED_DATA.reviewFlagged
-    .map(name => `<span class="alias-pill">${name}</span>`).join('') || '<span class="alias-pill">Nenhum</span>';
+  const resolved = SEED_DATA.resolvedViaWiki || [];
+  reviewBox.innerHTML = resolved
+    .map(entry => `<span class="alias-pill">${entry}</span>`).join('') || '<span class="alias-pill">Nenhum</span>';
+
+  document.getElementById('idiomaItens').value = state.lang;
 }
+
+document.getElementById('idiomaItens').addEventListener('change', e => {
+  state.lang = e.target.value;
+  localStorage.setItem(LS_KEYS.lang, state.lang);
+  renderCidades();
+  renderEstoque();
+  showToast(state.lang === 'pt' ? 'Itens em português.' : 'Itens em inglês.');
+});
 
 document.getElementById('btnExportar').addEventListener('click', () => {
   const backup = { cities: state.cities, inventory: state.inventory, trains: state.trains, exportedAt: new Date().toISOString() };
@@ -357,12 +463,17 @@ document.getElementById('inputImportar').addEventListener('change', e => {
   e.target.value = '';
 });
 
-document.getElementById('btnReset').addEventListener('click', () => {
-  if (!confirm('Isso apaga tudo que você editou aqui e volta pros dados originais da planilha. Continuar?')) return;
-  localStorage.removeItem(LS_KEYS.seeded);
-  seedFromWorkbookData();
+document.getElementById('btnZerarProgresso').addEventListener('click', () => {
+  if (!confirm('Isso zera o quanto você já entregou em cada cidade, o depósito e o vagão de todo item, e desmarca todos os vagões como "Tenho". As listas de cidades, itens e vagões continuam do jeito que estão. Continuar?')) return;
+  state.cities.forEach(c => { c.delivered = 0; });
+  Object.keys(state.inventory).forEach(item => {
+    state.inventory[item].depot = 0;
+    state.inventory[item].cargo = 0;
+  });
+  state.trains.forEach(t => { t.ownedCT = false; t.ownedPT = false; });
+  persistAll();
   renderAll();
-  showToast('Dados originais restaurados.');
+  showToast('Progresso zerado — jogo novo, listas mantidas.');
 });
 
 /* ================= Tabs / init ================= */

@@ -88,6 +88,17 @@
 
   <!-- TRENS -->
   <section class="panel hidden" id="panel-trens">
+    <div class="combo-card">
+      <h2>Melhor combinação</h2>
+      <p>Pega, entre os vagões marcados como "Tenho", os de maior pontuação até preencher o número de vagas do seu trem.</p>
+      <div class="combo-controls">
+        <label for="comboVagas">Vagas disponíveis</label>
+        <input type="number" id="comboVagas" min="1" value="6">
+        <button id="btnCalcularCombo" class="btn btn-primary">Calcular melhor combinação</button>
+      </div>
+      <div id="comboResultado"></div>
+    </div>
+
     <div class="toolbar">
       <input type="search" id="trenBusca" placeholder="Buscar vagão…" autocomplete="off">
       <select id="trenTipoFiltro">
@@ -104,6 +115,7 @@
         <option value="nao">Ainda não tenho</option>
       </select>
       <span class="toolbar-count" id="trenCount"></span>
+      <button id="btnAddTrem" class="btn btn-secondary btn-mini">+ Adicionar vagão</button>
     </div>
     <div class="table-wrap">
       <table id="tabelaTrens">
@@ -121,6 +133,7 @@
             <th data-sort="facilities">Instal.</th>
             <th data-sort="points">Pontos</th>
             <th>Tenho</th>
+            <th></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -144,14 +157,23 @@
       </div>
 
       <div class="config-card">
-        <h2>Reiniciar</h2>
-        <p>Apaga tudo o que você editou e volta pros dados originais da sua planilha.</p>
-        <button id="btnReset" class="btn btn-danger">Restaurar dados originais</button>
+        <h2>Zerar Progresso</h2>
+        <p>Recomeçou o Tiny Rails do zero? Isso zera tudo que é progresso — entregue de cada cidade, depósito e vagão de cada item, e desmarca "Tenho" de todos os vagões — mas mantém as listas de cidades, itens e vagões como estão, prontas pra você preencher de novo.</p>
+        <button id="btnZerarProgresso" class="btn btn-danger">Zerar Progresso</button>
       </div>
 
       <div class="config-card">
-        <h2>Nomes padronizados em inglês</h2>
-        <p>Sua planilha misturava português e inglês pro mesmo item (ex: "Aço" e "Steel" eram tratados como coisas diferentes), o que fazia a soma de progresso ficar errada. Agora todo item usa o nome em inglês, igual à <a href="https://tinyrails.fandom.com/wiki/Resources" target="_blank" rel="noopener">página de recursos da Tiny Rails Wiki</a>. Lista completa dos nomes que mudaram:</p>
+        <h2>Idioma dos itens</h2>
+        <p>Escolha se os nomes de item aparecem em português ou inglês nas abas Cidades e Estoque. A busca funciona nos dois idiomas, independente da opção escolhida.</p>
+        <select id="idiomaItens">
+          <option value="pt">Português</option>
+          <option value="en">Inglês</option>
+        </select>
+      </div>
+
+      <div class="config-card">
+        <h2>Nomes em português e inglês, de acordo com a Wiki</h2>
+        <p>Todo item do jogo tem nome em português e em inglês, ambos baseados na <a href="https://tinyrails.fandom.com/wiki/Resources" target="_blank" rel="noopener">página de recursos da Tiny Rails Wiki</a> — não usamos mais os nomes como estavam na planilha antiga, que misturava os dois idiomas pro mesmo item (ex: "Aço" e "Steel" eram tratados como coisas diferentes). Nomes que mudaram desde a planilha original:</p>
         <div id="listaAliases" class="alias-list"></div>
       </div>
 
