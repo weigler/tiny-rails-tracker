@@ -47,12 +47,23 @@ function defaultRegionUnlocks() {
 
 function loadRegionUnlocks() {
   const saved = localStorage.getItem(LS_KEYS.regions);
-  if (saved) {
-    state.regionUnlocks = JSON.parse(saved);
-  } else {
+  if (!saved) {
     state.regionUnlocks = defaultRegionUnlocks();
-    localStorage.setItem(LS_KEYS.regions, JSON.stringify(state.regionUnlocks));
+    persistRegionUnlocks();
+    return;
   }
+  state.regionUnlocks = JSON.parse(saved);
+
+  // Qualquer região nova adicionada depois que o usuário já tinha esse estado salvo
+  // entra travada por padrão — antes ficava "sem registro" e vazava como sempre visível.
+  let changed = false;
+  REGION_ORDER.forEach(r => {
+    if (!(r in state.regionUnlocks)) {
+      state.regionUnlocks[r] = false;
+      changed = true;
+    }
+  });
+  if (changed) persistRegionUnlocks();
 }
 
 function persistRegionUnlocks() {
