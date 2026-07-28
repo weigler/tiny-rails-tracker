@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tiny Rails — Manifesto de Carga</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="board">
+  <div class="board-inner">
+    <div class="board-title">
+      <span class="board-eyebrow">TR · CONTROLE DE CARGA</span>
+      <h1>Tiny Rails</h1>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="cidades">Cidades</button>
+      <button class="tab" data-tab="estoque">Estoque</button>
+      <button class="tab" data-tab="trens">Trens</button>
+      <button class="tab" data-tab="config">Ajustes</button>
+    </nav>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- CIDADES -->
+  <section class="panel" id="panel-cidades">
+    <div class="toolbar">
+      <input type="search" id="cidadeBusca" placeholder="Buscar cidade, item ou região…" autocomplete="off">
+      <select id="cidadeRegiaoFiltro"><option value="">Todas as regiões</option></select>
+      <select id="cidadeStatusFiltro">
+        <option value="">Todos os status</option>
+        <option value="pendente">Pendente</option>
+        <option value="completo">Completo</option>
+      </select>
+      <span class="toolbar-count" id="cidadeCount"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="tabelaCidades">
+        <thead>
+          <tr>
+            <th data-sort="region">Região</th>
+            <th data-sort="city">Cidade</th>
+            <th data-sort="state">Estado</th>
+            <th data-sort="item">Item</th>
+            <th data-sort="total">Total</th>
+            <th data-sort="delivered">Entregue</th>
+            <th data-sort="remaining">Falta</th>
+            <th data-sort="progress">Progresso</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ESTOQUE -->
+  <section class="panel hidden" id="panel-estoque">
+    <div class="toolbar">
+      <input type="search" id="itemBusca" placeholder="Buscar item…" autocomplete="off">
+      <select id="itemStatusFiltro">
+        <option value="">Todos os itens</option>
+        <option value="falta">Ainda falta</option>
+        <option value="completo">Já cobre a demanda</option>
+      </select>
+      <span class="toolbar-count" id="itemCount"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="tabelaItens">
+        <thead>
+          <tr>
+            <th data-sort="item">Item</th>
+            <th data-sort="needed">Precisa (cidades)</th>
+            <th data-sort="depot">Depósito</th>
+            <th data-sort="cargo">Vagão</th>
+            <th data-sort="remaining">Ainda falta</th>
+            <th>Transferir Vagão ↔ Depósito</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- TRENS -->
+  <section class="panel hidden" id="panel-trens">
+    <div class="toolbar">
+      <input type="search" id="trenBusca" placeholder="Buscar vagão…" autocomplete="off">
+      <select id="trenTipoFiltro">
+        <option value="">Todos os tipos</option>
+        <option value="E">Passageiro (E)</option>
+        <option value="F">Comida (F)</option>
+        <option value="C">Carga (C)</option>
+        <option value="P">Especial (P)</option>
+        <option value="M">Militar (M)</option>
+      </select>
+      <select id="trenPossuoFiltro">
+        <option value="">Todos</option>
+        <option value="sim">Já tenho</option>
+        <option value="nao">Ainda não tenho</option>
+      </select>
+      <span class="toolbar-count" id="trenCount"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="tabelaTrens">
+        <thead>
+          <tr>
+            <th data-sort="name">Nome</th>
+            <th data-sort="type">Tipo</th>
+            <th data-sort="level">Nível</th>
+            <th data-sort="weight">Peso</th>
+            <th data-sort="passengers">Pass.</th>
+            <th data-sort="cargo">Carga</th>
+            <th data-sort="food">Comida</th>
+            <th data-sort="comfort">Conforto</th>
+            <th data-sort="entertainment">Diversão</th>
+            <th data-sort="facilities">Instal.</th>
+            <th data-sort="points">Pontos</th>
+            <th>Tenho</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- AJUSTES -->
+  <section class="panel hidden" id="panel-config">
+    <div class="config-grid">
+      <div class="config-card">
+        <h2>Backup dos dados</h2>
+        <p>Tudo fica salvo só neste navegador (localStorage). Exporte de vez em quando pra não perder nada, ou pra levar seus dados pra outro computador.</p>
+        <div class="config-actions">
+          <button id="btnExportar" class="btn btn-primary">Exportar backup (.json)</button>
+          <label class="btn btn-secondary file-btn">
+            Importar backup
+            <input type="file" id="inputImportar" accept="application/json" hidden>
+          </label>
+        </div>
+      </div>
+
+      <div class="config-card">
+        <h2>Reiniciar</h2>
+        <p>Apaga tudo o que você editou e volta pros dados originais da sua planilha.</p>
+        <button id="btnReset" class="btn btn-danger">Restaurar dados originais</button>
+      </div>
+
+      <div class="config-card">
+        <h2>Itens com nome em dois idiomas</h2>
+        <p>Sua planilha tinha o mesmo item registrado em português e inglês (ex: "Aço" e "Steel"), o que fazia a soma de progresso ficar errada. Esses pares abaixo já foram unificados automaticamente:</p>
+        <div id="listaAliases" class="alias-list"></div>
+      </div>
+
+      <div class="config-card">
+        <h2>Itens pra revisar</h2>
+        <p>Estes nomes vieram incompletos ou ambíguos na planilha original (ex: "??", "Ball?"). Dá uma olhada no jogo e corrija o nome direto na aba Cidades, se precisar:</p>
+        <div id="listaRevisao" class="alias-list"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
