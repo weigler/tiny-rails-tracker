@@ -8,7 +8,7 @@ const LS_KEYS = {
   cities: 'tr_cities',
   inventory: 'tr_inventory',
   trains: 'tr_trains',
-  seeded: 'tr_seeded_v2',
+  seeded: 'tr_seeded_v4',
   lang: 'tr_item_lang',
 };
 
@@ -56,9 +56,12 @@ function seedFromWorkbookData() {
 
   state.trains = SEED_DATA.trains.map((t, i) => ({
     id: 't' + i,
-    ...t,
-    ownedCT: t.ct === 'S',
-    ownedPT: t.pt === 'S',
+    name: t.name,
+    type: t.type,
+    levels: JSON.parse(JSON.stringify(t.levels)),
+    levelOrder: [...t.levelOrder],
+    currentLevel: t.currentLevel,
+    owned: t.owned,
   }));
 
   persistAll();
@@ -278,7 +281,13 @@ function renderEstoque() {
 
 /* ================= TRENS ================= */
 
-const TREN_NUM_FIELDS = ['level', 'weight', 'passengers', 'cargo', 'food', 'comfort', 'entertainment', 'facilities', 'points'];
+const TREN_STAT_FIELDS = ['weight', 'passengers', 'cargo', 'food', 'comfort', 'entertainment', 'facilities', 'points'];
+const LEVEL_LABELS = { '1': 'Nível 1', '2': 'Nível 2', 'max': 'Max' };
+const LEVEL_SEQUENCE = ['1', '2', 'max'];
+
+function currentStats(train) {
+  return train.levels[train.currentLevel] || {};
+}
 
 function renderTrens() {
   const q = document.getElementById('trenBusca').value.trim().toLowerCase();
@@ -287,21 +296,24 @@ function renderTrens() {
 
   let rows = state.trains.filter(t => {
     if (tipo && t.type !== tipo) return false;
-    const has = t.ownedCT || t.ownedPT;
-    if (possuo === 'sim' && !has) return false;
-    if (possuo === 'nao' && has) return false;
+    if (possuo === 'sim' && !t.owned) return false;
+    if (possuo === 'nao' && t.owned) return false;
     if (q && !t.name.toLowerCase().includes(q)) return false;
     return true;
   });
 
   const { key, dir } = state.sort.trens;
-  rows = sortRows(rows, key, dir);
+  const withStats = rows.map(t => ({ ...t, ...currentStats(t) }));
+  rows = sortRows(withStats, key, dir).map(r => state.trains.find(t => t.id === r.id));
 
   document.getElementById('trenCount').textContent = `${rows.length} vagão/vagões`;
 
   const tbody = document.querySelector('#tabelaTrens tbody');
-  const numInput = (t, field) => `<input class="tbl-input qty-input" type="number" step="any" data-field="${field}" value="${t[field] ?? ''}">`;
-  tbody.innerHTML = rows.map(t => `
+  const numInput = (val, field) => `<input class="tbl-input qty-input" type="number" step="any" data-field="${field}" value="${val ?? ''}">`;
+  tbody.innerHTML = rows.map(t => {
+    const stats = currentStats(t);
+    const canAddLevel = t.levelOrder.length < LEVEL_SEQUENCE.length;
+    return `
     <tr data-id="${t.id}">
       <td><input class="tbl-input name-input" type="text" data-field="name" value="${t.name}"></td>
       <td>
@@ -309,10 +321,17 @@ function renderTrens() {
           ${['E', 'F', 'C', 'P', 'M'].map(v => `<option value="${v}" ${t.type === v ? 'selected' : ''}>${v}</option>`).join('')}
         </select>
       </td>
-      ${TREN_NUM_FIELDS.map(f => `<td>${numInput(t, f)}</td>`).join('')}
-      <td><input type="checkbox" class="own-check" ${(t.ownedCT || t.ownedPT) ? 'checked' : ''}></td>
-      <td><button class="btn-remove" title="Remover vagão">✕</button></td>
-    </tr>`).join('') || `<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--ink-soft)">Nenhum vagão bate com esse filtro.</td></tr>`;
+      <td>
+        <select class="tbl-select" data-field="currentLevel">
+          ${t.levelOrder.map(lv => `<option value="${lv}" ${t.currentLevel === lv ? 'selected' : ''}>${LEVEL_LABELS[lv]}</option>`).join('')}
+        </select>
+      </td>
+      ${TREN_STAT_FIELDS.map(f => `<td>${numInput(stats[f], f)}</td>`).join('')}
+      <td><input type="checkbox" class="own-check" ${t.owned ? 'checked' : ''}></td>
+      <td>${canAddLevel ? `<button class="btn-remove" data-action="add-level" title="Adicionar próximo nível">+ nível</button>` : ''}</td>
+      <td><button class="btn-remove" data-action="remove" title="Remover vagão">✕</button></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="15" style="text-align:center;padding:24px;color:var(--ink-soft)">Nenhum vagão bate com esse filtro.</td></tr>`;
 
   tbody.querySelectorAll('tr[data-id]').forEach(tr => {
     const id = tr.dataset.id;
@@ -327,20 +346,38 @@ function renderTrens() {
       train.type = e.target.value;
       persistAll(); renderTrens();
     });
-    TREN_NUM_FIELDS.forEach(f => {
+    tr.querySelector('select[data-field="currentLevel"]').addEventListener('change', e => {
+      train.currentLevel = e.target.value;
+      persistAll();
+      renderTrens();
+      showToast(`${train.name}: mostrando ${LEVEL_LABELS[train.currentLevel]}.`);
+    });
+    TREN_STAT_FIELDS.forEach(f => {
       tr.querySelector(`input[data-field="${f}"]`).addEventListener('change', e => {
         const v = e.target.value === '' ? null : parseFloat(e.target.value);
-        train[f] = (v === null || isNaN(v)) ? null : v;
+        train.levels[train.currentLevel][f] = (v === null || isNaN(v)) ? null : v;
         persistAll();
       });
     });
     tr.querySelector('.own-check').addEventListener('change', e => {
-      train.ownedCT = e.target.checked;
-      train.ownedPT = false;
+      train.owned = e.target.checked;
       persistAll();
       showToast(`${train.name}: ${e.target.checked ? 'marcado como possuído' : 'desmarcado'}.`);
     });
-    tr.querySelector('.btn-remove').addEventListener('click', () => {
+    const addLevelBtn = tr.querySelector('[data-action="add-level"]');
+    if (addLevelBtn) {
+      addLevelBtn.addEventListener('click', () => {
+        const nextLevel = LEVEL_SEQUENCE.find(lv => !train.levelOrder.includes(lv));
+        if (!nextLevel) return;
+        train.levels[nextLevel] = { ...currentStats(train) };
+        train.levelOrder.push(nextLevel);
+        train.currentLevel = nextLevel;
+        persistAll();
+        renderTrens();
+        showToast(`${train.name}: ${LEVEL_LABELS[nextLevel]} adicionado — ajuste os valores.`);
+      });
+    }
+    tr.querySelector('[data-action="remove"]').addEventListener('click', () => {
       if (!confirm(`Remover "${train.name}" da lista?`)) return;
       state.trains = state.trains.filter(t => t.id !== id);
       persistAll();
@@ -353,10 +390,11 @@ function renderTrens() {
 document.getElementById('btnAddTrem').addEventListener('click', () => {
   const id = 't_' + Date.now();
   state.trains.push({
-    id, name: 'Novo vagão', type: 'E', level: 1,
-    weight: null, passengers: null, cargo: null, food: null,
-    comfort: null, entertainment: null, facilities: null, points: null,
-    ownedCT: true, ownedPT: false,
+    id, name: 'Novo vagão', type: 'E',
+    levels: { '1': { weight: null, passengers: null, cargo: null, food: null, comfort: null, entertainment: null, facilities: null, points: null } },
+    levelOrder: ['1'],
+    currentLevel: '1',
+    owned: true,
   });
   persistAll();
   renderTrens();
@@ -365,14 +403,15 @@ document.getElementById('btnAddTrem').addEventListener('click', () => {
 
 function renderComboResultado(slots) {
   const box = document.getElementById('comboResultado');
-  const owned = state.trains.filter(t => t.ownedCT || t.ownedPT);
+  const owned = state.trains.filter(t => t.owned);
 
   if (owned.length === 0) {
     box.innerHTML = `<p class="combo-empty">Nenhum vagão está marcado como "Tenho" ainda. Marque na tabela abaixo pra calcular.</p>`;
     return;
   }
 
-  const sorted = sortRows(owned, 'points', -1);
+  const withStats = owned.map(t => ({ ...t, ...currentStats(t) }));
+  const sorted = sortRows(withStats, 'points', -1);
   const chosen = sorted.slice(0, slots);
   const sum = (field) => chosen.reduce((acc, t) => acc + (t[field] || 0), 0);
 
@@ -391,7 +430,7 @@ function renderComboResultado(slots) {
 
   const listHtml = chosen.length
     ? `<div class="combo-list">${chosen.map(t => `
-        <div class="combo-list-item"><span>${t.name} <span style="color:var(--ink-soft)">(${t.type})</span></span><span>${t.points ?? '—'} pts</span></div>
+        <div class="combo-list-item"><span>${t.name} <span style="color:var(--ink-soft)">(${t.type}, ${LEVEL_LABELS[t.currentLevel]})</span></span><span>${t.points ?? '—'} pts</span></div>
       `).join('')}</div>`
     : `<p class="combo-empty">Nenhum vagão possuído tem pontuação registrada.</p>`;
 
@@ -470,7 +509,7 @@ document.getElementById('btnZerarProgresso').addEventListener('click', () => {
     state.inventory[item].depot = 0;
     state.inventory[item].cargo = 0;
   });
-  state.trains.forEach(t => { t.ownedCT = false; t.ownedPT = false; });
+  state.trains.forEach(t => { t.owned = false; t.currentLevel = t.levelOrder[0]; });
   persistAll();
   renderAll();
   showToast('Progresso zerado — jogo novo, listas mantidas.');

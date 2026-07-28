@@ -233,6 +233,7 @@ tbody tr.completo td.item-name::after { content: " ✓"; color: var(--ok); }
   padding: 4px 6px;
 }
 .btn-remove:hover { text-decoration: underline; }
+.btn-remove[data-action="add-level"] { color: var(--teal); font-size: 11px; white-space: nowrap; }
 
 
 /* ---------- Config panel ---------- */
