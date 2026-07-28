@@ -8,7 +8,7 @@ const LS_KEYS = {
   cities: 'tr_cities',
   inventory: 'tr_inventory',
   trains: 'tr_trains',
-  seeded: 'tr_seeded_v6',
+  seeded: 'tr_seeded_v15',
   lang: 'tr_item_lang',
   regions: 'tr_region_unlocks',
 };
@@ -17,7 +17,17 @@ const LS_KEYS = {
 // USA Center, USA West, Canada West, Canada Center, Canada East -> depois Mexico/Latin America)
 const REGION_ORDER = [
   'USA Leste', 'USA Sul', 'USA Centro', 'USA Oeste',
-  'Canada West', 'Canada Center', 'Canada East', 'Mexico',
+  'Canada West', 'Canada Center', 'Canada East',
+  'Alasca',
+  'Mexico',
+  'América do Sul Norte', 'América do Sul Centro', 'América do Sul Austral',
+  'Caribe', 'América Central',
+  'Europa Oeste', 'Europa Sul', 'Europa Norte', 'Europa Leste',
+  'Rússia Oeste', 'Rússia Leste', 'Ásia Central', 'Ásia Leste', 'Ásia Norte',
+  'África Oeste', 'África Leste', 'África Central', 'África do Sul',
+  'Oceania Leste', 'Oceania Oeste',
+  'Oriente Médio Superior', 'Oriente Médio Inferior',
+  'Sudeste Asiático Oeste', 'Sudeste Asiático Leste',
 ];
 
 let state = {
@@ -80,7 +90,7 @@ function loadState() {
     loadRegionUnlocks();
     return;
   }
-  state.cities = JSON.parse(localStorage.getItem(LS_KEYS.cities) || '[]');
+  state.cities = JSON.parse(localStorage.getItem(LS_KEYS.cities) || '[]').map(c => ({ stationLevel: 1, ...c }));
   state.inventory = JSON.parse(localStorage.getItem(LS_KEYS.inventory) || '{}');
   state.trains = JSON.parse(localStorage.getItem(LS_KEYS.trains) || '[]');
   loadRegionUnlocks();
@@ -89,7 +99,7 @@ function loadState() {
 function seedFromWorkbookData() {
   // Sempre começa zerado — a estrutura (cidades, itens, vagões) vem do jogo,
   // mas entregue/depósito/vagão/"tenho" nunca são herdados de nenhuma fonte antiga.
-  state.cities = SEED_DATA.cities.map((c, i) => ({ ...c, id: 'c' + i, delivered: 0 }));
+  state.cities = SEED_DATA.cities.map((c, i) => ({ ...c, id: 'c' + i, delivered: 0, stationLevel: 1 }));
 
   const inv = {};
   SEED_DATA.inventory.forEach(row => {
@@ -221,6 +231,19 @@ function populateRegionFilter() {
   if (regions.includes(currentValue)) sel.value = currentValue;
 }
 
+const STATION_LABELS = { 1: 'Não comprada', 2: 'Comprada', 3: 'Nível 2', 4: 'Nível 3 (Max)' };
+
+function stationKey(c) {
+  return `${c.region}|${c.city}|${c.state}`;
+}
+
+function setStationLevel(city, level) {
+  const key = stationKey(city);
+  state.cities.forEach(c => {
+    if (stationKey(c) === key) c.stationLevel = level;
+  });
+}
+
 function renderCidades() {
   const q = document.getElementById('cidadeBusca').value.trim().toLowerCase();
   const regiao = document.getElementById('cidadeRegiaoFiltro').value;
@@ -249,11 +272,17 @@ function renderCidades() {
   tbody.innerHTML = rows.map(c => {
     const pct = Math.round(cityProgress(c) * 100);
     const done = cityRemaining(c) === 0;
+    const stationLevel = c.stationLevel || 1;
     return `
       <tr class="${done ? 'completo' : ''}" data-id="${c.id}">
         <td>${c.region || ''}</td>
         <td>${c.city === 'Factory' ? 'Fábrica' : c.city}</td>
         <td>${c.state || ''}</td>
+        <td>
+          <select class="tbl-select" data-field="stationLevel">
+            ${[1, 2, 3, 4].map(lv => `<option value="${lv}" ${stationLevel === lv ? 'selected' : ''}>${STATION_LABELS[lv]}</option>`).join('')}
+          </select>
+        </td>
         <td class="item-name">${displayItem(c.item)}</td>
         <td>${c.total || 0}</td>
         <td><input class="qty-input" type="number" min="0" data-field="delivered" value="${c.delivered || 0}"></td>
@@ -265,7 +294,7 @@ function renderCidades() {
           </div>
         </td>
       </tr>`;
-  }).join('') || `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--ink-soft)">Nenhuma linha bate com esse filtro.</td></tr>`;
+  }).join('') || `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--ink-soft)">Nenhuma linha bate com esse filtro.</td></tr>`;
 
   tbody.querySelectorAll('input[data-field="delivered"]').forEach(input => {
     input.addEventListener('change', e => {
@@ -279,6 +308,18 @@ function renderCidades() {
       renderCidades();
       renderEstoque();
       showToast(`${displayItem(city.item)} em ${city.city}: entregue atualizado.`);
+    });
+  });
+
+  tbody.querySelectorAll('select[data-field="stationLevel"]').forEach(sel => {
+    sel.addEventListener('change', e => {
+      const id = e.target.closest('tr').dataset.id;
+      const city = state.cities.find(c => c.id === id);
+      const level = parseInt(e.target.value, 10);
+      setStationLevel(city, level);
+      persistAll();
+      renderCidades();
+      showToast(`${city.city}: estação marcada como "${STATION_LABELS[level]}".`);
     });
   });
 }
@@ -543,15 +584,17 @@ document.getElementById('btnCalcularCombo').addEventListener('click', () => {
 });
 
 document.getElementById('btnRecalcularPontos').addEventListener('click', () => {
-  const pesoAlto = parseFloat(document.getElementById('pesoCargaPass').value) || 0;
+  const pesoCarga = parseFloat(document.getElementById('pesoCarga').value) || 0;
+  const pesoPassageiros = parseFloat(document.getElementById('pesoPassageiros').value) || 0;
   const pesoBaixo = parseFloat(document.getElementById('pesoOutros').value) || 0;
-  localStorage.setItem('tr_peso_carga_pass', pesoAlto);
+  localStorage.setItem('tr_peso_carga', pesoCarga);
+  localStorage.setItem('tr_peso_passageiros', pesoPassageiros);
   localStorage.setItem('tr_peso_outros', pesoBaixo);
-  if (!confirm(`Isso substitui a pontuação já preenchida em todos os vagões (todos os níveis), usando peso ${pesoAlto} pra carga/passageiros e peso ${pesoBaixo} pros demais atributos. Continuar?`)) return;
+  if (!confirm(`Isso substitui a pontuação já preenchida em todos os vagões (todos os níveis), usando peso ${pesoCarga} pra carga, peso ${pesoPassageiros} pra passageiros, e peso ${pesoBaixo} pros demais atributos. Continuar?`)) return;
 
   state.trains.forEach(t => {
     Object.values(t.levels).forEach(stats => {
-      stats.points = pesoAlto * ((stats.passengers || 0) + (stats.cargo || 0))
+      stats.points = pesoCarga * (stats.cargo || 0) + pesoPassageiros * (stats.passengers || 0)
         + pesoBaixo * ((stats.food || 0) + (stats.comfort || 0) + (stats.entertainment || 0) + (stats.facilities || 0));
     });
   });
@@ -626,8 +669,8 @@ document.getElementById('inputImportar').addEventListener('change', e => {
 });
 
 document.getElementById('btnZerarProgresso').addEventListener('click', () => {
-  if (!confirm('Isso zera o quanto você já entregou em cada cidade, o depósito e o vagão de todo item, desmarca todos os vagões como "Tenho", e trava todas as regiões de novo (só a primeira fica desbloqueada). As listas de cidades, itens e vagões continuam do jeito que estão. Continuar?')) return;
-  state.cities.forEach(c => { c.delivered = 0; });
+  if (!confirm('Isso zera o quanto você já entregou em cada cidade, o depósito e o vagão de todo item, desmarca todos os vagões como "Tenho", zera as estações compradas/niveladas, e trava todas as regiões de novo (só a primeira fica desbloqueada). As listas de cidades, itens e vagões continuam do jeito que estão. Continuar?')) return;
+  state.cities.forEach(c => { c.delivered = 0; c.stationLevel = 1; });
   Object.keys(state.inventory).forEach(item => {
     state.inventory[item].depot = 0;
     state.inventory[item].cargo = 0;
@@ -674,7 +717,9 @@ attachSortHandlers('tabelaTrens', 'trens', renderTrens);
 loadState();
 renderAll();
 
-const savedPesoAlto = localStorage.getItem('tr_peso_carga_pass');
+const savedPesoCarga = localStorage.getItem('tr_peso_carga');
+const savedPesoPassageiros = localStorage.getItem('tr_peso_passageiros');
 const savedPesoBaixo = localStorage.getItem('tr_peso_outros');
-if (savedPesoAlto !== null) document.getElementById('pesoCargaPass').value = savedPesoAlto;
+if (savedPesoCarga !== null) document.getElementById('pesoCarga').value = savedPesoCarga;
+if (savedPesoPassageiros !== null) document.getElementById('pesoPassageiros').value = savedPesoPassageiros;
 if (savedPesoBaixo !== null) document.getElementById('pesoOutros').value = savedPesoBaixo;
