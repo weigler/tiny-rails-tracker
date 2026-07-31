@@ -350,11 +350,36 @@ function renderCidades() {
       let v = parseInt(e.target.value, 10);
       if (isNaN(v) || v < 0) v = 0;
       if (v > city.total) v = city.total;
+      const delta = v - (city.delivered || 0);
       city.delivered = v;
+
+      let msg = `${displayItem(city.item)} em ${city.city}: entregue atualizado.`;
+      if (delta > 0 && city.item) {
+        // Descarregar consome do estoque: primeiro do vagão, depois do depósito.
+        const inv = getInv(city.item);
+        let falta = delta;
+        const doVagao = Math.min(inv.cargo, falta);
+        inv.cargo -= doVagao;
+        falta -= doVagao;
+        const doDeposito = Math.min(inv.depot, falta);
+        inv.depot -= doDeposito;
+        falta -= doDeposito;
+        const descarregado = delta - falta;
+        if (falta > 0) {
+          msg = `${displayItem(city.item)} em ${city.city}: entregue atualizado, mas você só tinha ${descarregado} no estoque (faltaram ${falta}).`;
+        } else {
+          msg = `${displayItem(city.item)} em ${city.city}: entregue atualizado, ${descarregado} descontado do estoque.`;
+        }
+      } else if (delta < 0 && city.item) {
+        // Reduzindo o entregue (corrigindo um engano) devolve pro depósito.
+        getInv(city.item).depot += -delta;
+        msg = `${displayItem(city.item)} em ${city.city}: entregue reduzido, ${-delta} devolvido ao depósito.`;
+      }
+
       persistAll();
       renderCidades();
       renderEstoque();
-      showToast(`${displayItem(city.item)} em ${city.city}: entregue atualizado.`);
+      showToast(msg);
     });
   });
 
@@ -369,6 +394,33 @@ function renderCidades() {
       showToast(`${city.city}: estação marcada como "${STATION_LABELS[level]}".`);
     });
   });
+
+  renderProgressoCidades();
+}
+
+function renderProgressoCidades() {
+  const box = document.getElementById('progressoCidades');
+  const cities = state.cities.filter(c => isRegionUnlocked(c.region) && !c.isFactory);
+
+  if (cities.length === 0) {
+    box.innerHTML = `<p class="combo-empty">Nenhuma cidade desbloqueada ainda.</p>`;
+    return;
+  }
+
+  const completas = cities.filter(c => cityRemaining(c) === 0).length;
+  const totalNeeded = cities.reduce((acc, c) => acc + (c.total || 0), 0);
+  const totalDelivered = cities.reduce((acc, c) => acc + Math.min(c.delivered || 0, c.total || 0), 0);
+  const pct = totalNeeded > 0 ? Math.round((totalDelivered / totalNeeded) * 100) : 0;
+
+  box.innerHTML = `
+    <div class="combo-summary">
+      <span><b>${completas}</b> de ${cities.length} cidades completas</span>
+      <span><b>${totalDelivered}</b> de ${totalNeeded} itens entregues</span>
+    </div>
+    <div class="progress-cell" style="margin-top:8px">
+      <div class="progress-bar"><span style="width:${pct}%"></span></div>
+      <span class="progress-pct">${pct}%</span>
+    </div>`;
 }
 
 /* ================= ESTOQUE ================= */
@@ -456,7 +508,65 @@ function renderEstoque() {
       });
     });
   });
+
+  renderResumoEstoque();
 }
+
+function renderResumoEstoque() {
+  const box = document.getElementById('resumoEstoque');
+  const totalCargo = Object.values(state.inventory).reduce((acc, i) => acc + (i.cargo || 0), 0);
+  const totalDepot = Object.values(state.inventory).reduce((acc, i) => acc + (i.depot || 0), 0);
+  const capacidade = parseInt(document.getElementById('capacidadeVagao').value, 10);
+  const temCapacidade = !isNaN(capacidade) && capacidade > 0;
+
+  let vagaoCardHtml;
+  if (temCapacidade) {
+    const pct = Math.min(100, Math.round((totalCargo / capacidade) * 100));
+    const estourou = totalCargo > capacidade;
+    vagaoCardHtml = `
+      <div class="stock-stat ${estourou ? 'over-capacity' : ''}">
+        <div class="stock-stat-label">No vagão</div>
+        <div class="stock-stat-value">${totalCargo} <span class="of-total">/ ${capacidade}</span></div>
+        <div class="progress-cell" style="margin-top:8px">
+          <div class="progress-bar"><div style="width:${pct}%; height:100%; background:${estourou ? 'var(--danger)' : 'var(--teal)'}"></div></div>
+          <span class="progress-pct">${pct}%</span>
+        </div>
+        ${estourou ? `<div class="stock-stat-warning">⚠️ acima da capacidade</div>` : ''}
+      </div>`;
+  } else {
+    vagaoCardHtml = `
+      <div class="stock-stat">
+        <div class="stock-stat-label">No vagão</div>
+        <div class="stock-stat-value">${totalCargo}</div>
+      </div>`;
+  }
+
+  const depositoCardHtml = `
+    <div class="stock-stat">
+      <div class="stock-stat-label">No depósito</div>
+      <div class="stock-stat-value">${totalDepot}</div>
+    </div>`;
+
+  box.innerHTML = `<div class="stock-stats">${vagaoCardHtml}${depositoCardHtml}</div>`;
+}
+
+document.getElementById('capacidadeVagao').addEventListener('input', debounce(() => {
+  const v = document.getElementById('capacidadeVagao').value;
+  localStorage.setItem('tr_capacidade_vagao', v);
+  renderResumoEstoque();
+}, 150));
+
+document.getElementById('btnPuxarCapacidade').addEventListener('click', () => {
+  const cargo = localStorage.getItem('tr_last_combo_cargo');
+  if (cargo === null) {
+    showToast('Calcule a "Melhor combinação" na aba Trens primeiro.');
+    return;
+  }
+  document.getElementById('capacidadeVagao').value = cargo;
+  localStorage.setItem('tr_capacidade_vagao', cargo);
+  renderResumoEstoque();
+  showToast(`Capacidade preenchida com ${cargo}, da última combinação calculada.`);
+});
 
 /* ================= TRENS ================= */
 
@@ -591,6 +701,10 @@ function renderComboResultado(slots, maxWeight) {
   const { chosenIdx } = knapsackBestCombo(withStats, slots, maxWeightUnits);
   const chosen = chosenIdx.map(i => withStats[i]);
   const sum = (field) => chosen.reduce((acc, t) => acc + (t[field] || 0), 0);
+
+  if (chosen.length > 0) {
+    localStorage.setItem('tr_last_combo_cargo', sum('cargo'));
+  }
 
   const cappedNote = (slots > MAX_SLOTS_CAP || maxWeight * WEIGHT_SCALE > MAX_WEIGHT_UNITS)
     ? `<p class="combo-empty" style="margin-bottom:8px">Limitei o cálculo a no máximo ${MAX_SLOTS_CAP} vagas e peso ${MAX_WEIGHT_UNITS / WEIGHT_SCALE} pra não travar o navegador.</p>` : '';
@@ -751,6 +865,9 @@ document.getElementById('tabs').addEventListener('click', e => {
 attachSortHandlers('tabelaCidades', 'cidades', renderCidades);
 attachSortHandlers('tabelaItens', 'estoque', renderEstoque);
 attachSortHandlers('tabelaTrens', 'trens', renderTrens);
+
+const savedCapacidade = localStorage.getItem('tr_capacidade_vagao');
+if (savedCapacidade !== null) document.getElementById('capacidadeVagao').value = savedCapacidade;
 
 loadState();
 renderAll();

@@ -207,6 +207,33 @@ tbody tr.completo td.item-name::after { content: " ✓"; color: var(--ok); }
   border-radius: var(--radius);
 }
 .combo-summary b { color: var(--teal); }
+
+/* ---------- Big stock stat cards (Estoque tab) ---------- */
+.stock-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+.stock-stat {
+  flex: 1 1 160px;
+  background: var(--paper-dim);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  border-left: 4px solid var(--teal);
+}
+.stock-stat.over-capacity { border-left-color: var(--danger); }
+.stock-stat-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.stock-stat-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+}
+.stock-stat-value .of-total { font-family: var(--font-mono); font-size: 15px; font-weight: 400; color: var(--ink-soft); }
+.stock-stat-warning { font-size: 11.5px; color: var(--danger); margin-top: 4px; font-weight: 700; }
 .combo-list { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
 .combo-list-item {
   display: flex;
