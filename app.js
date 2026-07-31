@@ -198,12 +198,21 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+const collatorCache = {};
+function getCollator(locale) {
+  if (!collatorCache[locale]) {
+    collatorCache[locale] = new Intl.Collator(locale, { sensitivity: 'base' });
+  }
+  return collatorCache[locale];
+}
+
 function sortRows(rows, key, dir) {
   const locale = state.lang === 'pt' ? 'pt-BR' : 'en-US';
+  const collator = getCollator(locale);
   return rows.slice().sort((a, b) => {
     let av = a[key], bv = b[key];
     if (typeof av === 'string' || typeof bv === 'string') {
-      return dir * String(av ?? '').localeCompare(String(bv ?? ''), locale, { sensitivity: 'base' });
+      return dir * collator.compare(String(av ?? ''), String(bv ?? ''));
     }
     av = av ?? -Infinity; bv = bv ?? -Infinity;
     if (av < bv) return -1 * dir;
