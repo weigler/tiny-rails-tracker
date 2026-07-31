@@ -71,10 +71,26 @@
         <tbody></tbody>
       </table>
     </div>
+    <div class="pagination" id="paginacaoCidades"></div>
+
+    <div class="combo-card">
+      <h2>Progresso de cidades</h2>
+      <div id="progressoCidades"></div>
+    </div>
   </section>
 
   <!-- ESTOQUE -->
   <section class="panel hidden" id="panel-estoque">
+    <div class="combo-card">
+      <h2>Total no estoque</h2>
+      <div class="combo-controls">
+        <label for="capacidadeVagao">Capacidade máxima do vagão</label>
+        <input type="number" id="capacidadeVagao" min="0" step="1" placeholder="opcional">
+        <button id="btnPuxarCapacidade" class="btn btn-secondary btn-mini">Puxar da aba Trens</button>
+      </div>
+      <div id="resumoEstoque"></div>
+    </div>
+
     <div class="toolbar">
       <input type="search" id="itemBusca" placeholder="Buscar item…" autocomplete="off">
       <select id="itemStatusFiltro">

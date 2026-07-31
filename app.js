@@ -50,6 +50,7 @@ let state = {
   lang: localStorage.getItem(LS_KEYS.lang) || 'pt',
   regionUnlocks: {}, // { regionName: true/false }
   sort: { cidades: { key: 'city', dir: 1 }, estoque: { key: 'remaining', dir: -1 }, trens: { key: 'points', dir: -1 } },
+  cidadesPage: 0,
 };
 
 function defaultRegionUnlocks() {
@@ -260,6 +261,7 @@ function renderRegioes() {
       persistRegionUnlocks();
       renderRegioes();
       populateRegionFilter();
+      state.cidadesPage = 0;
       renderCidades();
       renderEstoque();
       showToast(`${region} desbloqueada!`);
@@ -291,6 +293,8 @@ function setStationLevel(city, level) {
   });
 }
 
+const CIDADES_PAGE_SIZE = 50;
+
 function renderCidades() {
   const q = document.getElementById('cidadeBusca').value.trim().toLowerCase();
   const regiao = document.getElementById('cidadeRegiaoFiltro').value;
@@ -313,7 +317,18 @@ function renderCidades() {
   const withDerived = rows.map(c => ({ ...c, remaining: cityRemaining(c), progress: cityProgress(c), itemDisplay: displayItem(c.item) }));
   rows = sortRows(withDerived, key === 'item' ? 'itemDisplay' : key, dir);
 
-  document.getElementById('cidadeCount').textContent = `${rows.length} linha(s)`;
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / CIDADES_PAGE_SIZE));
+  if (state.cidadesPage >= totalPages) state.cidadesPage = totalPages - 1;
+  if (state.cidadesPage < 0) state.cidadesPage = 0;
+  const pageStart = state.cidadesPage * CIDADES_PAGE_SIZE;
+  rows = rows.slice(pageStart, pageStart + CIDADES_PAGE_SIZE);
+
+  document.getElementById('cidadeCount').textContent = totalRows > CIDADES_PAGE_SIZE
+    ? `${totalRows} linha(s) — mostrando ${pageStart + 1}–${Math.min(pageStart + CIDADES_PAGE_SIZE, totalRows)}`
+    : `${totalRows} linha(s)`;
+
+  renderPaginacaoCidades(totalPages);
 
   const tbody = document.querySelector('#tabelaCidades tbody');
   tbody.innerHTML = rows.map(c => {
@@ -396,6 +411,20 @@ function renderCidades() {
   });
 
   renderProgressoCidades();
+}
+
+function renderPaginacaoCidades(totalPages) {
+  const box = document.getElementById('paginacaoCidades');
+  if (totalPages <= 1) { box.innerHTML = ''; return; }
+  box.innerHTML = `
+    <button id="cidadesPagAnterior" ${state.cidadesPage === 0 ? 'disabled' : ''}>← Anterior</button>
+    <span>Página ${state.cidadesPage + 1} de ${totalPages}</span>
+    <button id="cidadesPagProxima" ${state.cidadesPage >= totalPages - 1 ? 'disabled' : ''}>Próxima →</button>`;
+
+  const anterior = document.getElementById('cidadesPagAnterior');
+  const proxima = document.getElementById('cidadesPagProxima');
+  if (anterior) anterior.addEventListener('click', () => { state.cidadesPage--; renderCidades(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  if (proxima) proxima.addEventListener('click', () => { state.cidadesPage++; renderCidades(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 }
 
 function renderProgressoCidades() {
@@ -856,7 +885,7 @@ document.getElementById('tabs').addEventListener('click', e => {
 });
 
 ['cidadeBusca', 'cidadeRegiaoFiltro', 'cidadeStatusFiltro'].forEach(id =>
-  document.getElementById(id).addEventListener('input', debounce(renderCidades, 120)));
+  document.getElementById(id).addEventListener('input', debounce(() => { state.cidadesPage = 0; renderCidades(); }, 120)));
 ['itemBusca', 'itemStatusFiltro'].forEach(id =>
   document.getElementById(id).addEventListener('input', debounce(renderEstoque, 120)));
 ['trenBusca', 'trenTipoFiltro', 'trenPossuoFiltro'].forEach(id =>
