@@ -263,7 +263,7 @@ function renderRegioes() {
       populateRegionFilter();
       state.cidadesPage = 0;
       renderCidades();
-      renderEstoque();
+      if (document.querySelector('.tab.active')?.dataset.tab === 'estoque') renderEstoque();
       showToast(`${region} desbloqueada!`);
     });
   });
@@ -393,7 +393,7 @@ function renderCidades() {
 
       persistAll();
       renderCidades();
-      renderEstoque();
+      if (document.querySelector('.tab.active')?.dataset.tab === 'estoque') renderEstoque();
       showToast(msg);
     });
   });
@@ -803,8 +803,9 @@ document.getElementById('idiomaItens').addEventListener('change', e => {
   state.lang = e.target.value;
   localStorage.setItem(LS_KEYS.lang, state.lang);
   renderCidades();
-  renderEstoque();
-  renderTrens();
+  const activeTab = document.querySelector('.tab.active')?.dataset.tab;
+  if (activeTab === 'estoque') renderEstoque();
+  if (activeTab === 'trens') renderTrens();
   if (document.getElementById('comboResultado').innerHTML.trim()) {
     let slots = parseInt(document.getElementById('comboVagas').value, 10);
     if (isNaN(slots) || slots < 1) slots = 1;
@@ -870,9 +871,12 @@ function renderAll() {
   renderRegioes();
   populateRegionFilter();
   renderCidades();
-  renderEstoque();
-  renderTrens();
   renderConfig();
+  // Estoque e Trens só são pesados de renderizar (até 343 linhas) — só valem a pena
+  // quando a aba realmente está visível, senão travam o carregamento à toa.
+  const activeTab = document.querySelector('.tab.active')?.dataset.tab;
+  if (activeTab === 'estoque') renderEstoque();
+  if (activeTab === 'trens') renderTrens();
 }
 
 document.getElementById('tabs').addEventListener('click', e => {
@@ -882,6 +886,10 @@ document.getElementById('tabs').addEventListener('click', e => {
   btn.classList.add('active');
   document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
   document.getElementById(`panel-${btn.dataset.tab}`).classList.remove('hidden');
+
+  if (btn.dataset.tab === 'estoque') renderEstoque();
+  if (btn.dataset.tab === 'trens') renderTrens();
+  if (btn.dataset.tab === 'cidades') renderCidades();
 });
 
 ['cidadeBusca', 'cidadeRegiaoFiltro', 'cidadeStatusFiltro'].forEach(id =>
